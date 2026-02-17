@@ -95,6 +95,24 @@ def generate_month_over_month_insights(df):
     return insights
 
 
+def calculate_savings_health(total_income, total_expenses):
+    if total_income == 0:
+        return "No income data available."
+
+    savings = total_income + total_expenses  # expenses are negative
+    savings_rate = (savings / total_income) * 100
+
+    if savings < 0:
+        return f"🚨 You are running a deficit. Savings rate: {savings_rate:.1f}%"
+    elif savings_rate >= 20:
+        return f"🟢 Strong financial health. Savings rate: {savings_rate:.1f}%"
+    elif savings_rate >= 10:
+        return f"🟡 Moderate savings rate: {savings_rate:.1f}%"
+    else:
+        return f"🔴 Low savings rate: {savings_rate:.1f}%"
+
+
+
 # -----------------------
 # PLOTLY CHARTS
 # -----------------------
@@ -167,6 +185,14 @@ if uploaded_file:
     st.write(f"**Total Income:** ${total_income:,.2f}")
     st.write(f"**Total Expenses:** ${total_expenses:,.2f}")
 
+# -------- Financial Health Section --------
+    st.subheader("💡 Financial Health")
+
+    health_message = calculate_savings_health(total_income, total_expenses)
+    st.write(health_message)
+
+
+# -------- Charts --------
     st.subheader("Monthly Net Income")
     st.plotly_chart(plot_monthly_summary(monthly_summary))
 
