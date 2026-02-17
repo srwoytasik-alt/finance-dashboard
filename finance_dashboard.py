@@ -2,20 +2,16 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 
-#push to github 
-# git add finance_dashboard.py 
-# git commit -m "Add month-over-month insight engine" 
-# git push
+# 17FEB2026
 
 # -----------------------
-# DATA FUNCTIONS
+# DATA LOADING
 # -----------------------
 
 def load_data(file):
     df = pd.read_csv(file, encoding='utf-8-sig')
     df.columns = df.columns.str.strip()
     df['Date'] = pd.to_datetime(df['Date'])
-    df['Month'] = df['Date'].dt.to_period('M')
 
     if 'Account' not in df.columns:
         df['Account'] = 'Unknown'
@@ -23,25 +19,29 @@ def load_data(file):
     return df
 
 
-def summarize(df, account=None):
-    if account:
-        df = df[df['Account'] == account]
+# -----------------------
+# ANALYSIS HELPERS
+# -----------------------
 
-    total_income = df[df['Amount'] > 0]['Amount'].sum()
-    total_expenses = df[df['Amount'] < 0]['Amount'].sum()
-    monthly_summary = df.groupby('Month')['Amount'].sum()
-    spending = (
-        df[df['Amount'] < 0]
-        .groupby('Category')['Amount']
-        .sum()
-        .abs()
-    )
+def calculate_savings_health(total_income, total_expenses):
+    if total_income == 0:
+        return "No income data available."
 
-    return total_income, total_expenses, monthly_summary, spending
+    savings = total_income + total_expenses
+    savings_rate = (savings / total_income) * 100
+
+    if savings < 0:
+        return f"🚨 You are running a deficit. Savings rate: {savings_rate:.1f}%"
+    elif savings_rate >= 20:
+        return f"🟢 Strong financial health. Savings rate: {savings_rate:.1f}%"
+    elif savings_rate >= 10:
+        return f"🟡 Moderate savings rate: {savings_rate:.1f}%"
+    else:
+        return f"🔴 Low savings rate: {savings_rate:.1f}%"
 
 
 def generate_month_over_month_insights(df):
-    df_sorted = df.sort_values("Date")
+    df_sorted = df.sort_values("Date").copy()
     df_sorted["Month"] = df_sorted["Date"].dt.to_period("M")
 
     monthly_net = df_sorted.groupby("Month")["Amount"].sum()
@@ -70,53 +70,7 @@ def generate_month_over_month_insights(df):
     else:
         insights.append("➡️ Net income remained stable compared to last month.")
 
-    # Category comparison
-    category_month = (
-        df_sorted[df_sorted["Amount"] < 0]
-        .groupby(["Month", "Category"])["Amount"]
-        .sum()
-        .abs()
-        .unstack(fill_value=0)
-    )
-
-    if len(category_month) >= 2:
-        last_cat = category_month.iloc[-1]
-        prev_cat = category_month.iloc[-2]
-
-        diff = last_cat - prev_cat
-        top_increase = diff.sort_values(ascending=False).index[0]
-        increase_value = diff.sort_values(ascending=False).iloc[0]
-
-        if increase_value > 0:
-            insights.append(
-                f"⚠️ {top_increase} spending increased by ${increase_value:.2f} compared to last month."
-            )
-
     return insights
-
-
-def calculate_savings_health(total_income, total_expenses):
-    if total_income == 0:
-        return "No income data available."
-
-    savings = total_income + total_expenses  # expenses are negative
-    savings_rate = (savings / total_income) * 100
-
-    if savings < 0:
-        return f"🚨 You are running a deficit. Savings rate: {savings_rate:.1f}%"
-    elif savings_rate >= 20:
-        return f"🟢 Strong financial health. Savings rate: {savings_rate:.1f}%"
-    elif savings_rate >= 10:
-        return f"🟡 Moderate savings rate: {savings_rate:.1f}%"
-    else:
-        return f"🔴 Low savings rate: {savings_rate:.1f}%"
-
-
-# st.subheader("🚨 Deficit & Runway Analysis")
-
-# runway_message = detect_deficit_and_runway(df_for_insights)
-# st.write(runway_message)
-
 
 
 def detect_spending_concentration(spending):
@@ -137,9 +91,8 @@ def detect_spending_concentration(spending):
         return f"📊 {largest_category} is your largest expense at {percentage:.1f}% of total spending."
 
 
-
 def detect_deficit_and_runway(df):
-    df_sorted = df.sort_values("Date")
+    df_sorted = df.sort_values("Date").copy()
     df_sorted["Month"] = df_sorted["Date"].dt.to_period("M")
 
     monthly_net = df_sorted.groupby("Month")["Amount"].sum()
@@ -153,18 +106,6 @@ def detect_deficit_and_runway(df):
         return "✅ No deficit detected in the latest month."
 
     deficit_amount = abs(latest_month_value)
-
-    # Estimate average monthly burn if multiple months exist
-    if len(monthly_net) >= 2:
-        avg_monthly = monthly_net.mean()
-        if avg_monthly < 0:
-            runway_estimate = abs(monthly_net.sum() / avg_monthly)
-            return (
-                f"🚨 You ran a ${deficit_amount:,.2f} deficit this month. "
-                f"At this average rate, reserves would last approximately "
-                f"{runway_estimate:.1f} months."
-            )
-
     return f"🚨 You ran a ${deficit_amount:,.2f} deficit this month."
 
 
@@ -196,6 +137,7 @@ def benchmark_spending(spending):
         messages.append("✅ Spending categories are within recommended thresholds.")
 
     return messages
+
 
 def calculate_spending_opportunity(spending):
     if spending.empty:
@@ -229,6 +171,57 @@ def calculate_spending_opportunity(spending):
     return messages
 
 
+# -----------------------
+# FINANCIAL ANALYZER CLASS
+# -----------------------
+
+class FinancialAnalyzer:
+
+    def __init__(self, df, selected_account):
+        self.df = df[df["Account"] == selected_account].copy()
+        self.df["Month"] = self.df["Date"].dt.to_period("M")
+
+        self.total_income = 0
+        self.total_expenses = 0
+        self.monthly_summary = None
+        self.spending = None
+
+        self.savings_health = None
+        self.insights = None
+        self.concentration = None
+        self.benchmarks = None
+        self.opportunities = None
+        self.runway = None
+
+    def run(self):
+        self._calculate_core_metrics()
+        self._run_analyses()
+
+    def _calculate_core_metrics(self):
+        self.total_income = self.df[self.df["Amount"] > 0]["Amount"].sum()
+        self.total_expenses = self.df[self.df["Amount"] < 0]["Amount"].sum()
+
+        self.monthly_summary = self.df.groupby("Month")["Amount"].sum()
+
+        self.spending = (
+            self.df[self.df["Amount"] < 0]
+            .groupby("Category")["Amount"]
+            .sum()
+            .abs()
+        )
+
+    def _run_analyses(self):
+        self.savings_health = calculate_savings_health(
+            self.total_income,
+            self.total_expenses
+        )
+
+        self.insights = generate_month_over_month_insights(self.df)
+        self.concentration = detect_spending_concentration(self.spending)
+        self.benchmarks = benchmark_spending(self.spending)
+        self.opportunities = calculate_spending_opportunity(self.spending)
+        self.runway = detect_deficit_and_runway(self.df)
+
 
 # -----------------------
 # PLOTLY CHARTS
@@ -239,39 +232,33 @@ def plot_monthly_summary(monthly_summary):
     df_plot.columns = ['Month', 'Net Amount']
     df_plot['Month'] = df_plot['Month'].astype(str)
 
-    fig = px.bar(
+    return px.bar(
         df_plot,
         x='Month',
         y='Net Amount',
         title='Net Income per Month'
     )
 
-    return fig
-
 
 def plot_spending_pie(spending):
     df_plot = spending.reset_index()
     df_plot.columns = ['Category', 'Amount']
 
-    fig = px.pie(
+    return px.pie(
         df_plot,
         names='Category',
         values='Amount',
         title='Spending by Category'
     )
 
-    return fig
-
 
 # -----------------------
 # STREAMLIT APP
 # -----------------------
 
-st.set_page_config(page_title="Finance Dashboard", layout="wide")
-#st.title("💰 Personal Finance Dashboard")
+st.set_page_config(page_title="Financial Insight Dashboard", layout="wide")
 st.title("📊 Financial Insight Dashboard")
 st.caption("Upload transaction exports to receive automated financial health analysis and trend insights.")
-
 
 uploaded_file = st.file_uploader("Upload your transactions CSV", type="csv")
 
@@ -279,11 +266,9 @@ if uploaded_file:
 
     df = load_data(uploaded_file)
 
-    # Account selector
     accounts = df['Account'].unique().tolist()
     selected_account = st.selectbox("Select Account", accounts)
 
-    # Date filter
     start_date = st.date_input("Start Date", df['Date'].min())
     end_date = st.date_input("End Date", df['Date'].max())
 
@@ -296,75 +281,49 @@ if uploaded_file:
         (df['Date'] <= pd.to_datetime(end_date))
     ]
 
-    total_income, total_expenses, monthly_summary, spending = summarize(
-        df_filtered,
-        selected_account
-    )
+    engine = FinancialAnalyzer(df_filtered, selected_account)
+    engine.run()
 
+    # Summary
     st.subheader("Summary")
-    st.write(f"**Total Income:** ${total_income:,.2f}")
-    st.write(f"**Total Expenses:** ${total_expenses:,.2f}")
+    st.write(f"**Total Income:** ${engine.total_income:,.2f}")
+    st.write(f"**Total Expenses:** ${engine.total_expenses:,.2f}")
 
-# -------- Financial Health Section --------
+    # Financial Health
     st.subheader("💡 Financial Health")
+    st.write(engine.savings_health)
 
-    health_message = calculate_savings_health(total_income, total_expenses)
-    st.write(health_message)
-
-
+    # Concentration
     st.subheader("📌 Spending Concentration")
+    st.write(engine.concentration)
 
+    # Benchmarks
     st.subheader("📏 Benchmark Comparison")
+    for msg in engine.benchmarks:
+        st.write(msg)
 
+    # Opportunities
     st.subheader("💡 Optimization Opportunities")
-
-    opportunity_messages = calculate_spending_opportunity(spending)
-
-    for msg in opportunity_messages:
+    for msg in engine.opportunities:
         st.write(msg)
 
-
-    benchmark_messages = benchmark_spending(spending)
-
-    for msg in benchmark_messages:
-        st.write(msg)
-
-
-    concentration_message = detect_spending_concentration(spending)
-    st.write(concentration_message)
-
-
-    # st.subheader("🚨 Deficit & Runway Analysis")
-
-    # runway_message = detect_deficit_and_runway(df_for_insights)
-    # st.write(runway_message)
-
-
-# -------- Charts --------
+    # Charts
     st.subheader("Monthly Net Income")
-    st.plotly_chart(plot_monthly_summary(monthly_summary))
+    st.plotly_chart(plot_monthly_summary(engine.monthly_summary))
 
     st.subheader("Spending by Category")
-    st.plotly_chart(plot_spending_pie(spending))
+    st.plotly_chart(plot_spending_pie(engine.spending))
 
-    # -------- Insights Section --------
+    # Insights
     st.subheader("📊 Month-over-Month Insights")
-
-    df_for_insights = df_filtered[df_filtered["Account"] == selected_account]
-    insights = generate_month_over_month_insights(df_for_insights)
-
-    for insight in insights:
+    for insight in engine.insights:
         st.write(insight)
 
-
-# -------- Deficit & Runway --------
+    # Runway
     st.subheader("🚨 Deficit & Runway Analysis")
+    st.write(engine.runway)
 
-    runway_message = detect_deficit_and_runway(df_for_insights)
-    st.write(runway_message)
-
-
-    # -------- CSV Download --------
+    # Download
     st.subheader("Download Filtered Data")
     csv_data = df_filtered.to_csv(index=False).encode('utf-8')
     st.download_button(
@@ -373,9 +332,3 @@ if uploaded_file:
         "filtered_transactions.csv",
         "text/csv"
     )
-
-
-#push to github 
-# # git add finance_dashboard.py 
-# # git commit -m "Add month-over-month insight engine" 
-# # git push
