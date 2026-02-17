@@ -168,6 +168,36 @@ def detect_deficit_and_runway(df):
     return f"🚨 You ran a ${deficit_amount:,.2f} deficit this month."
 
 
+def benchmark_spending(spending):
+    if spending.empty:
+        return ["No spending data available."]
+
+    benchmarks = {
+        "Housing": 30,
+        "Transportation": 15,
+        "Groceries": 15
+    }
+
+    total = spending.sum()
+    messages = []
+
+    for category, value in spending.items():
+        percent = (value / total) * 100
+
+        if category in benchmarks:
+            threshold = benchmarks[category]
+            if percent > threshold:
+                diff = percent - threshold
+                messages.append(
+                    f"⚠️ {category} exceeds recommended {threshold}% threshold by {diff:.1f}%."
+                )
+
+    if not messages:
+        messages.append("✅ Spending categories are within recommended thresholds.")
+
+    return messages
+
+
 
 
 # -----------------------
@@ -253,6 +283,14 @@ if uploaded_file:
 
 
     st.subheader("📌 Spending Concentration")
+
+    st.subheader("📏 Benchmark Comparison")
+
+    benchmark_messages = benchmark_spending(spending)
+
+    for msg in benchmark_messages:
+        st.write(msg)
+
 
     concentration_message = detect_spending_concentration(spending)
     st.write(concentration_message)
