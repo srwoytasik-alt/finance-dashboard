@@ -2,6 +2,11 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 
+#push to github 
+# # git add finance_dashboard.py 
+# # git commit -m "Add month-over-month insight engine" 
+# # git push
+
 # -----------------------
 # DATA FUNCTIONS
 # -----------------------
@@ -33,6 +38,61 @@ def summarize(df, account=None):
     )
 
     return total_income, total_expenses, monthly_summary, spending
+
+
+def generate_month_over_month_insights(df):
+    df_sorted = df.sort_values("Date")
+    df_sorted["Month"] = df_sorted["Date"].dt.to_period("M")
+
+    monthly_net = df_sorted.groupby("Month")["Amount"].sum()
+
+    if len(monthly_net) < 2:
+        return ["Not enough data for month-over-month analysis."]
+
+    last_value = monthly_net.iloc[-1]
+    prev_value = monthly_net.iloc[-2]
+
+    change_percent = (
+        ((last_value - prev_value) / abs(prev_value)) * 100
+        if prev_value != 0 else 0
+    )
+
+    insights = []
+
+    if change_percent > 0:
+        insights.append(
+            f"📈 Net income increased {change_percent:.1f}% compared to last month."
+        )
+    elif change_percent < 0:
+        insights.append(
+            f"📉 Net income decreased {abs(change_percent):.1f}% compared to last month."
+        )
+    else:
+        insights.append("➡️ Net income remained stable compared to last month.")
+
+    # Category comparison
+    category_month = (
+        df_sorted[df_sorted["Amount"] < 0]
+        .groupby(["Month", "Category"])["Amount"]
+        .sum()
+        .abs()
+        .unstack(fill_value=0)
+    )
+
+    if len(category_month) >= 2:
+        last_cat = category_month.iloc[-1]
+        prev_cat = category_month.iloc[-2]
+
+        diff = last_cat - prev_cat
+        top_increase = diff.sort_values(ascending=False).index[0]
+        increase_value = diff.sort_values(ascending=False).iloc[0]
+
+        if increase_value > 0:
+            insights.append(
+                f"⚠️ {top_increase} spending increased by ${increase_value:.2f} compared to last month."
+            )
+
+    return insights
 
 
 # -----------------------
@@ -72,6 +132,7 @@ def plot_spending_pie(spending):
 # STREAMLIT APP
 # -----------------------
 
+st.set_page_config(page_title="Finance Dashboard", layout="wide")
 st.title("💰 Personal Finance Dashboard")
 
 uploaded_file = st.file_uploader("Upload your transactions CSV", type="csv")
@@ -87,6 +148,10 @@ if uploaded_file:
     # Date filter
     start_date = st.date_input("Start Date", df['Date'].min())
     end_date = st.date_input("End Date", df['Date'].max())
+
+    if start_date > end_date:
+        st.error("Start date must be before end date.")
+        st.stop()
 
     df_filtered = df[
         (df['Date'] >= pd.to_datetime(start_date)) &
@@ -108,7 +173,16 @@ if uploaded_file:
     st.subheader("Spending by Category")
     st.plotly_chart(plot_spending_pie(spending))
 
-    # CSV Download
+    # -------- Insights Section --------
+    st.subheader("📊 Month-over-Month Insights")
+
+    df_for_insights = df_filtered[df_filtered["Account"] == selected_account]
+    insights = generate_month_over_month_insights(df_for_insights)
+
+    for insight in insights:
+        st.write(insight)
+
+    # -------- CSV Download --------
     st.subheader("Download Filtered Data")
     csv_data = df_filtered.to_csv(index=False).encode('utf-8')
     st.download_button(
@@ -117,3 +191,9 @@ if uploaded_file:
         "filtered_transactions.csv",
         "text/csv"
     )
+
+
+#push to github 
+# # git add finance_dashboard.py 
+# # git commit -m "Add month-over-month insight engine" 
+# # git push
