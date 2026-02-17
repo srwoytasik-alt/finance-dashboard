@@ -3,9 +3,9 @@ import streamlit as st
 import plotly.express as px
 
 #push to github 
-# # git add finance_dashboard.py 
-# # git commit -m "Add month-over-month insight engine" 
-# # git push
+# git add finance_dashboard.py 
+# git commit -m "Add month-over-month insight engine" 
+# git push
 
 # -----------------------
 # DATA FUNCTIONS
@@ -112,6 +112,13 @@ def calculate_savings_health(total_income, total_expenses):
         return f"🔴 Low savings rate: {savings_rate:.1f}%"
 
 
+# st.subheader("🚨 Deficit & Runway Analysis")
+
+# runway_message = detect_deficit_and_runway(df_for_insights)
+# st.write(runway_message)
+
+
+
 def detect_spending_concentration(spending):
     if spending.empty:
         return "No spending data available."
@@ -128,6 +135,37 @@ def detect_spending_concentration(spending):
         return f"⚠️ {largest_category} represents {percentage:.1f}% of total expenses."
     else:
         return f"📊 {largest_category} is your largest expense at {percentage:.1f}% of total spending."
+
+
+
+def detect_deficit_and_runway(df):
+    df_sorted = df.sort_values("Date")
+    df_sorted["Month"] = df_sorted["Date"].dt.to_period("M")
+
+    monthly_net = df_sorted.groupby("Month")["Amount"].sum()
+
+    if len(monthly_net) == 0:
+        return "No financial data available."
+
+    latest_month_value = monthly_net.iloc[-1]
+
+    if latest_month_value >= 0:
+        return "✅ No deficit detected in the latest month."
+
+    deficit_amount = abs(latest_month_value)
+
+    # Estimate average monthly burn if multiple months exist
+    if len(monthly_net) >= 2:
+        avg_monthly = monthly_net.mean()
+        if avg_monthly < 0:
+            runway_estimate = abs(monthly_net.sum() / avg_monthly)
+            return (
+                f"🚨 You ran a ${deficit_amount:,.2f} deficit this month. "
+                f"At this average rate, reserves would last approximately "
+                f"{runway_estimate:.1f} months."
+            )
+
+    return f"🚨 You ran a ${deficit_amount:,.2f} deficit this month."
 
 
 
@@ -170,7 +208,10 @@ def plot_spending_pie(spending):
 # -----------------------
 
 st.set_page_config(page_title="Finance Dashboard", layout="wide")
-st.title("💰 Personal Finance Dashboard")
+#st.title("💰 Personal Finance Dashboard")
+st.title("📊 Financial Insight Dashboard")
+st.caption("Upload transaction exports to receive automated financial health analysis and trend insights.")
+
 
 uploaded_file = st.file_uploader("Upload your transactions CSV", type="csv")
 
@@ -216,6 +257,11 @@ if uploaded_file:
     concentration_message = detect_spending_concentration(spending)
     st.write(concentration_message)
 
+
+    st.subheader("🚨 Deficit & Runway Analysis")
+
+    runway_message = detect_deficit_and_runway(df_for_insights)
+    st.write(runway_message)
 
 
 # -------- Charts --------
