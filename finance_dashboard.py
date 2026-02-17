@@ -2,6 +2,12 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 
+#push to github
+# git add finance_dashboard.py
+# git commit -m "Add month-over-month insight engine"
+# git push
+
+
 # -----------------------
 # DATA FUNCTIONS
 # -----------------------
@@ -33,6 +39,10 @@ def summarize(df, account=None):
     )
 
     return total_income, total_expenses, monthly_summary, spending
+
+st.write("Unique Months in Filtered Data:", df_filtered["Month"].unique())
+st.write("Selected Account:", selected_account)
+
 
 def generate_month_over_month_insights(df):
     df_sorted = df.sort_values("Date")
