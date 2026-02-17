@@ -282,10 +282,10 @@ if uploaded_file:
 
 
 # -------- Deficit & Runway --------
-st.subheader("🚨 Deficit & Runway Analysis")
+    st.subheader("🚨 Deficit & Runway Analysis")
 
-runway_message = detect_deficit_and_runway(df_for_insights)
-st.write(runway_message)
+    runway_message = detect_deficit_and_runway(df_for_insights)
+    st.write(runway_message)
 
 
     # -------- CSV Download --------
