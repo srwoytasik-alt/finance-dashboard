@@ -197,6 +197,36 @@ def benchmark_spending(spending):
 
     return messages
 
+def calculate_spending_opportunity(spending):
+    if spending.empty:
+        return ["No spending data available."]
+
+    benchmarks = {
+        "Housing": 30,
+        "Transportation": 15,
+        "Groceries": 15
+    }
+
+    total_spending = spending.sum()
+    messages = []
+
+    for category, value in spending.items():
+        percent = (value / total_spending) * 100
+
+        if category in benchmarks:
+            threshold = benchmarks[category]
+            if percent > threshold:
+                recommended_amount = (threshold / 100) * total_spending
+                opportunity = value - recommended_amount
+
+                messages.append(
+                    f"💡 Reducing {category} to {threshold}% would free approximately ${opportunity:,.2f} per month."
+                )
+
+    if not messages:
+        messages.append("✅ No immediate spending reduction opportunities detected.")
+
+    return messages
 
 
 
@@ -285,6 +315,14 @@ if uploaded_file:
     st.subheader("📌 Spending Concentration")
 
     st.subheader("📏 Benchmark Comparison")
+
+    st.subheader("💡 Optimization Opportunities")
+
+    opportunity_messages = calculate_spending_opportunity(spending)
+
+    for msg in opportunity_messages:
+        st.write(msg)
+
 
     benchmark_messages = benchmark_spending(spending)
 
