@@ -40,8 +40,7 @@ def summarize(df, account=None):
 
     return total_income, total_expenses, monthly_summary, spending
 
-st.write("Unique Months in Filtered Data:", df_filtered["Month"].unique())
-st.write("Selected Account:", selected_account)
+
 
 
 def generate_month_over_month_insights(df):
@@ -140,6 +139,9 @@ uploaded_file = st.file_uploader("Upload your transactions CSV", type="csv")
 if uploaded_file:
 
     df = load_data(uploaded_file)
+
+    # st.write("Unique Months in Filtered Data:", df_filtered["Month"].unique())
+    # st.write("Selected Account:", selected_account)
 
     # Account selector
     accounts = df['Account'].unique().tolist()
