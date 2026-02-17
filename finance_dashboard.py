@@ -258,10 +258,10 @@ if uploaded_file:
     st.write(concentration_message)
 
 
-    st.subheader("🚨 Deficit & Runway Analysis")
+    # st.subheader("🚨 Deficit & Runway Analysis")
 
-    runway_message = detect_deficit_and_runway(df_for_insights)
-    st.write(runway_message)
+    # runway_message = detect_deficit_and_runway(df_for_insights)
+    # st.write(runway_message)
 
 
 # -------- Charts --------
@@ -279,6 +279,14 @@ if uploaded_file:
 
     for insight in insights:
         st.write(insight)
+
+
+# -------- Deficit & Runway --------
+st.subheader("🚨 Deficit & Runway Analysis")
+
+runway_message = detect_deficit_and_runway(df_for_insights)
+st.write(runway_message)
+
 
     # -------- CSV Download --------
     st.subheader("Download Filtered Data")
