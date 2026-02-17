@@ -139,6 +139,10 @@ if uploaded_file:
     start_date = st.date_input("Start Date", df['Date'].min())
     end_date = st.date_input("End Date", df['Date'].max())
 
+    if start_date > end_date:
+        st.error("Start date must be before end date.")
+
+
     df_filtered = df[
         (df['Date'] >= pd.to_datetime(start_date)) &
         (df['Date'] <= pd.to_datetime(end_date))
