@@ -34,6 +34,57 @@ def summarize(df, account=None):
 
     return total_income, total_expenses, monthly_summary, spending
 
+def generate_month_over_month_insights(df):
+    df_sorted = df.sort_values("Date")
+    df_sorted["Month"] = df_sorted["Date"].dt.to_period("M")
+
+    monthly_net = df_sorted.groupby("Month")["Amount"].sum()
+
+    if len(monthly_net) < 2:
+        return ["Not enough data for month-over-month analysis."]
+
+    last_month = monthly_net.index[-1]
+    prev_month = monthly_net.index[-2]
+
+    last_value = monthly_net.iloc[-1]
+    prev_value = monthly_net.iloc[-2]
+
+    change_percent = ((last_value - prev_value) / abs(prev_value)) * 100 if prev_value != 0 else 0
+
+    insights = []
+
+    if change_percent > 0:
+        insights.append(f"📈 Net income increased {change_percent:.1f}% compared to last month.")
+    elif change_percent < 0:
+        insights.append(f"📉 Net income decreased {abs(change_percent):.1f}% compared to last month.")
+    else:
+        insights.append("➡️ Net income remained stable compared to last month.")
+
+    # Category comparison
+    category_month = (
+        df_sorted[df_sorted["Amount"] < 0]
+        .groupby(["Month", "Category"])["Amount"]
+        .sum()
+        .abs()
+        .unstack(fill_value=0)
+    )
+
+    if len(category_month) >= 2:
+        last_cat = category_month.iloc[-1]
+        prev_cat = category_month.iloc[-2]
+
+        diff = last_cat - prev_cat
+        top_increase = diff.sort_values(ascending=False).index[0]
+        increase_value = diff.sort_values(ascending=False).iloc[0]
+
+        if increase_value > 0:
+            insights.append(
+                f"⚠️ {top_increase} spending increased by ${increase_value:.2f} compared to last month."
+            )
+
+    return insights
+
+
 
 # -----------------------
 # PLOTLY CHARTS
@@ -107,6 +158,15 @@ if uploaded_file:
 
     st.subheader("Spending by Category")
     st.plotly_chart(plot_spending_pie(spending))
+
+    st.subheader("📊 Month-over-Month Insights")
+
+    insights = generate_month_over_month_insights(df_filtered)
+
+    for insight in insights:
+        st.write(insight)
+
+
 
     # CSV Download
     st.subheader("Download Filtered Data")
