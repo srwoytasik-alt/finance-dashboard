@@ -112,6 +112,25 @@ def calculate_savings_health(total_income, total_expenses):
         return f"🔴 Low savings rate: {savings_rate:.1f}%"
 
 
+def detect_spending_concentration(spending):
+    if spending.empty:
+        return "No spending data available."
+
+    total_spending = spending.sum()
+    largest_category = spending.idxmax()
+    largest_value = spending.max()
+
+    percentage = (largest_value / total_spending) * 100
+
+    if percentage >= 50:
+        return f"🚨 {largest_category} represents {percentage:.1f}% of total expenses. High concentration risk."
+    elif percentage >= 35:
+        return f"⚠️ {largest_category} represents {percentage:.1f}% of total expenses."
+    else:
+        return f"📊 {largest_category} is your largest expense at {percentage:.1f}% of total spending."
+
+
+
 
 # -----------------------
 # PLOTLY CHARTS
@@ -190,6 +209,13 @@ if uploaded_file:
 
     health_message = calculate_savings_health(total_income, total_expenses)
     st.write(health_message)
+
+
+    st.subheader("📌 Spending Concentration")
+
+    concentration_message = detect_spending_concentration(spending)
+    st.write(concentration_message)
+
 
 
 # -------- Charts --------
