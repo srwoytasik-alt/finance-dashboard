@@ -267,7 +267,11 @@ def plot_cumulative_flow(cum_df):
 
 
 # ── MAIN APP ──────────────────────────────────────────────────────────────
-uploaded_file = st.file_uploader("Upload transactions CSV", type="csv")
+uploaded_file = st.file_uploader(
+    "Upload transactions CSV",
+    type="csv",
+    key="upload_csv"
+)
 
 # ---- RULE EDITOR ----
 with st.expander("Edit Categorization Rules"):
