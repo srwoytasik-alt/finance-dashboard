@@ -175,7 +175,9 @@ if uploaded_file:
 
     st.subheader("📊 Month-over-Month Insights")
 
-    insights = generate_month_over_month_insights(df_filtered)
+    df_for_insights = df_filtered[df_filtered["Account"] == selected_account]
+    insights = generate_month_over_month_insights(df_for_insights)
+
 
     for insight in insights:
         st.write(insight)
