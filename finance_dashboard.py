@@ -3,10 +3,25 @@ import streamlit as st
 import plotly.express as px
 from datetime import datetime
 
+# ChatGPT and Grok
+# 17FEB2026
+
 # ── CONFIG ────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Financial Insight Dashboard", layout="wide")
 st.title("📊 Financial Insight Dashboard")
 st.caption("Upload transaction exports → get automated health analysis & insights")
+
+
+#----------- SESSION STATE INITIALIZATION ------
+if "category_rules" not in st.session_state:
+    st.session_state.category_rules = {
+        "Groceries": r"costco|kroger|walmart",
+        "Transportation": r"shell|gas|chevron|car payment",
+        "Food": r"restaurant|chipotle",
+        "Housing": r"rent",
+        "Utilities": r"electric|internet"
+    }
+
 
 # ── DATA LOADING ──────────────────────────────────────────────────────────
 @st.cache_data
@@ -204,6 +219,28 @@ class FinancialAnalyzer:
         self.deficit_info = detect_deficit_and_runway(self.df)
 
 
+import re
+
+class TransactionCategorizer:
+    def __init__(self, rules=None):
+        self.rules = rules or {}
+
+    def categorize(self, description):
+        description = description.lower()
+
+        for category, pattern in self.rules.items():
+            if re.search(pattern, description):
+                return category
+
+        return "Uncategorized"
+
+    def apply(self, df):
+        df = df.copy()
+        df["Category"] = df["Description"].apply(self.categorize)
+        return df
+
+
+
 # ── PLOTS ─────────────────────────────────────────────────────────────────
 def plot_monthly_summary(monthly_summary):
     if monthly_summary is None or monthly_summary.empty:
@@ -232,9 +269,26 @@ def plot_cumulative_flow(cum_df):
 # ── MAIN APP ──────────────────────────────────────────────────────────────
 uploaded_file = st.file_uploader("Upload transactions CSV", type="csv")
 
+
+uploaded_file = st.file_uploader("Upload transactions CSV", type="csv")
+
+# ---- RULE EDITOR ----
+with st.expander("Edit Categorization Rules"):
+    updated_rules = {}
+    for category, pattern in st.session_state.category_rules.items():
+        new_pattern = st.text_input(f"{category} regex", pattern)
+        updated_rules[category] = new_pattern
+
+    st.session_state.category_rules = updated_rules
+
+
 if uploaded_file:
     with st.spinner("Loading and preparing data..."):
         raw_df = load_data(uploaded_file)
+
+        categorizer = TransactionCategorizer(st.session_state.category_rules)
+        raw_df = categorizer.apply(raw_df)
+
 
     if raw_df is not None and not raw_df.empty:
         accounts = sorted(raw_df["Account"].unique())
